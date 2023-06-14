@@ -46,6 +46,7 @@ class TimeHandler():
             raise ValueError("Update rate must be greater than 0")
         self._update_interval_ms = 1000 / self._update_rate
         self._logger = logging.getLogger(__name__)
+        self.set_host_time_offset()
 
     @property
     def update_interval_ms(self):
@@ -55,14 +56,14 @@ class TimeHandler():
     def update_rate(self):
         return self._update_rate
 
+    @staticmethod
+    def timestamp() -> int:
+        return int(datetime.now(timezone.utc).timestamp() * 1000)
+
     def set_host_time_offset(self):
         self._host_time_offset = datetime.now(timezone.utc)
-        self._logger.info(
-            f"host time offset {self._host_time_offset}, "
-            f"device time offset {self._device_time_offset}, "
-            f"delta ms {(self._compute_offset_delta_ms())}"
-        )
-    
+        self._logger.info("Setting host time offset [%s]", self._host_time_offset)
+
     def _compute_offset_delta_ms(self):
         if self._device_time_offset and self._host_time_offset:
             delta = self._host_time_offset - self._device_time_offset

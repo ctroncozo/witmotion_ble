@@ -20,7 +20,7 @@ from types import MappingProxyType as Map
 from typing import Final, Optional
 
 
-class RegName():
+class RegName(Enum):
     """Enumeration of supported WIT sensor register names."""
 
     DEFAULT = "default"

@@ -78,7 +78,7 @@ class WitPkt(Enum):
         Identifier for register-based response packets.
     """
 
-    DEFAULT_LENGTH = 11
+    DEFAULT_LENGTH = 20
     SINGLE_REGISTER_LENGTH = 20
     HEADER = 0x55
     DEFAULTFLAG = 0x61
@@ -202,7 +202,6 @@ class DefaultDecoder(IDecoder):
     Decode the WT901 default IMU packet containing acceleration, angular velocity, and orientation.
     """
 
-    timer: ClassVar[TimeHandler] = field(init=True)
     sequence: ClassVar[int] = 0
 
     @classmethod
@@ -233,20 +232,17 @@ class DefaultDecoder(IDecoder):
         acc_scale = 16.0
         gyro_scale = 2000.0
         angle_scale = 180.0
-        unpack_format = "BBBBhhhhhhhhh"
+        unpack_format = "<BBhhhhhhhhh"
 
-        timestamp = cls.timer.stamp_from_host()
         data = struct.unpack(unpack_format, pkt)
 
         acc_data = np.array(data[2:5]) / int16_scale * acc_scale
         angvel_data = np.array(data[5:8]) / int16_scale * gyro_scale
         angle_data = np.array(data[8:]) / int16_scale * angle_scale
 
-        acc_msg = Msg(timestamp_ms=timestamp, type=MsgType.ACCELERATION, data=acc_data)
-        angvel_msg = Msg(
-            timestamp_ms=timestamp, type=MsgType.ANGULAR_VELOCITY, data=angvel_data
-        )
-        angle_msg = Msg(timestamp_ms=timestamp, type=MsgType.ANGLE, data=angle_data)
+        acc_msg = Msg(_timestamp_ms=timestamp, _type=MsgType.ACCELERATION, _data=acc_data)
+        angvel_msg = Msg(_timestamp_ms=timestamp, _type=MsgType.ANGULAR_VELOCITY, _data=angvel_data)
+        angle_msg = Msg(_timestamp_ms=timestamp, _type=MsgType.ANGLE, _data=angle_data)
 
         return [acc_msg, angvel_msg, angle_msg]
 
@@ -257,7 +253,6 @@ class TimestampDecoder(IDecoder):
     Decode a timestamp register packet from the WT901 device.
     """
 
-    timer: ClassVar[TimeHandler] = field(init=True)
     sequence: ClassVar[int] = 0
 
     @classmethod
@@ -282,7 +277,7 @@ class TimestampDecoder(IDecoder):
         """
         unpack_format = "BBBBBBBBBBhhhhh"
         data = struct.unpack(unpack_format, pkt)
-        current_date = cls.timer.get_current_date()
+        current_date = datetime.now(timezone.utc)
         year_base = current_date.year - (current_date.year % 100)
         current_year = year_base + data[4]
 
@@ -375,11 +370,11 @@ class WitProtocol:
     SET_ANGLE_REF_CALIBRATION_MODE = 0x08
     MAG_DUAL_PLANE_CALIBRATION_MODE = 0x09
 
-    _logger: logging.Logger = field(default_factory=logging.getLogger)
     _default_decoder: DefaultDecoder = field(init=False)
     _timestamp_decoder: TimestampDecoder = field(init=False)
     _quaternion_decoder: QuaternionDecoder = field(init=False)
     _temperature_decoder: TemperatureDecoder = field(init=False)
+    _logger: logging.Logger = field(init=False, default_factory=logging.getLogger)
 
     def __post_init__(self):
         self._default_decoder = DefaultDecoder()

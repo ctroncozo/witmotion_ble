@@ -15,7 +15,7 @@ A Python library and command-line tool for scanning, connecting, and streaming d
 1. **Clone this repository:**
    ```bash
    git clone git@github.com:ctroncozo/witmotion_ble.git
-   cd WT901BLECL5.0
+   cd witmotion_ble
    ```
 
 2. **Install dependencies:**

@@ -31,16 +31,18 @@ class BleakClientWrapper:
     """
 
     _client: BleakClient = field(init=True)
-    _update_rate: UpdateRate = field(init=True)
-    _time: TimeHandler = field(init=False)
+    _update_rate: int = field(init=True)
+    _timer: TimeHandler = field(init=False)
     _notify_char: BleakGATTCharacteristic = field(init=False)
     _write_char: BleakGATTCharacteristic = field(init=False)
     _logger: logging.Logger = field(init=False)
     _running: bool = field(init=False)
+    _wit_protocol: WitProtocol = field(init=False, default=WitProtocol)
 
     def __post_init__(self):
         self.logger = logging.getLogger()
-        self._time = TimeHandler(self._update_rate.value)
+        self._timer = TimeHandler(self._update_rate)
+        self._wit_protocol = WitProtocol()
 
     @staticmethod
     async def _countdown(seconds: int):
@@ -73,7 +75,7 @@ class BleakClientWrapper:
         """
         Synchronize the device time with the host time.
         """
-        await self.send_command(WitProtocol.synchronize_instruction(self._time.synchronize()))
+        await self.send_command(WitProtocol.synchronize_instruction(self._timer.synchronize()))
     
     async def get_gatts(self):
         """
@@ -191,23 +193,22 @@ class BleakClientWrapper:
         None
         """
         if self._running:
-            self.logger.info("Notification received: %s", data)
+            stamp = self._timer.timestamp()
+            for msg in self._wit_protocol.decode(stamp, data):
+                self.logger.info("Notification received: %s", msg)
         else:
             self.logger.warning("Streaming stopped")
 
     async def stream(self):
         """
         Stream data from the device.
-        Parameters
-        ----------
-        None
         Returns
         -------
         None
         """
 
         await self.send_command(
-            Register.set_register_msg(Register.RATE, self._update_rate.value)
+            Register.set_register_msg(Register.RATE, self._update_rate)
         )
 
         async with asyncio.TaskGroup() as tg:
@@ -220,9 +221,6 @@ class BleakClientWrapper:
     def stop(self):
         """
         Stop streaming data from the device.
-        Parameters
-        ----------
-        None
         Returns
         -------
         None

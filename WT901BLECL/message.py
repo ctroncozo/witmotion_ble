@@ -59,7 +59,7 @@ class Msg:
     """
 
     counter: ClassVar[count] = count(start=0, step=1)
-    _seq: int = field(factory=lambda: next(Msg.counter))
+    _seq: int = field(init=False, factory=lambda: next(Msg.counter))
     _timestamp_ms: float = field(init=True)
     _type: MsgType = field(init=True)
     _data: Optional[Union[float, np.ndarray, datetime]] = field(init=True)
