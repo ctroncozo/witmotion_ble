@@ -26,8 +26,8 @@ import numpy as np
 
 from time_handler import TimeHandler
 
-from .message import Msg, MsgType
-from .registers import Register
+from WT901BLECL.message import Msg, MsgType
+from WT901BLECL.registers import Register
 
 
 class Gattuidd(Enum):

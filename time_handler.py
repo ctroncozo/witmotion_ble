@@ -33,7 +33,7 @@ class TimeHandler():
     _update_interval_ms (float):
         Time interval between samples in milliseconds. 
     """
-    _update_rate: float = field(init=True, default=0)
+    _update_rate: int = field(init=True, default=0)
     _initialized: bool = field(init=False, default=False)
     _device_curr_stamp_ms: float = field(init=False, default=None)
     _device_time_offset: datetime= field(init=False, default=None)
