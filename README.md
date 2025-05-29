@@ -58,8 +58,8 @@ Calibration routines are available in the `BleakClientWrapper` class. See `app.p
 - Example MetaMotionS MAC: `EE:33:49:03:91:45`
 
 ## References
-- [WT901BLECL5.0 Data Sheet](WT901BLECL%20DataSheet.pdf)
-- [WIT Standard Communication Protocol](WIT%20Standard%20Communication%20Protocol.pdf)
+- [WT901BLECL5.0 Data Sheet](documentation/wit_standard_comm_protocol.pdf)
+- [WIT Standard Communication Protocol](documentation/WT901BLECL_data_sheet.pdf)
 
 ## License
 MIT License

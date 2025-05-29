@@ -30,7 +30,9 @@ from WT901BLECL.message import Msg, MsgType
 from WT901BLECL.registers import Register
 
 
-class Gattuidd(Enum):
+protocol_logger = logging.getLogger("WitProtocol")
+
+class GattUIDD(Enum):
     """
     Bluetooth GATT (Generic Attribute Profile) UUIDs for WT901 BLE communication.
 
@@ -72,17 +74,17 @@ class WitPkt(Enum):
         Length of a single register response packet (20 bytes).
     HEADER : int
         Common header byte used to identify the start of a packet (0x55).
-    DEFAULTFLAG : int
+    DEFAULT_FLAG : int
         Identifier for default streaming packets.
-    REGISTERFLAG : int
+    REGISTER_FLAG : int
         Identifier for register-based response packets.
     """
 
     DEFAULT_LENGTH = 20
     SINGLE_REGISTER_LENGTH = 20
     HEADER = 0x55
-    DEFAULTFLAG = 0x61
-    REGISTERFLAG = 0x71
+    DEFAULT_FLAG = 0x61
+    REGISTER_FLAG = 0x71
 
 
 class UpdateRate(Enum):
@@ -104,6 +106,25 @@ class UpdateRate(Enum):
     R200HZ = 0x0B
     RSINGLE = 0x0C
     RNO_OUTPUT = 0x0D
+
+    def __str__(self):
+        return self.name
+
+    @classmethod
+    def is_valid_update_rate(cls, value: int) -> bool:
+        """
+        Check if the given value is a valid update rate.
+        """
+        protocol_logger.info("checking received update rate %s = %s", value, hex(value))
+        return value in cls._value2member_map_
+
+    @classmethod
+    def print_all_members(cls):
+        """
+        Print all members of the enum.
+        """
+        for member in cls:
+            protocol_logger.info("%s = %s ", member.name, member.value)
 
 
 @dataclass
@@ -190,9 +211,10 @@ class QuaternionDecoder(IDecoder):
         _, _, _, _, q0, q1, q2, q3 = struct.unpack(unpack_format, pkt)
         quat = np.array([q0, q1, q2, q3]) / 32768.0
         return Msg(
-            timestamp_ms=timestamp,
-            type=MsgType.QUATERNIONS,
-            data={MsgType.QUATERNIONS.value: quat},
+            _seq=QuaternionDecoder.sequence,
+            _timestamp_ms=timestamp,
+            _type=MsgType.QUATERNIONS,
+            _data= quat,
         )
 
 
@@ -237,14 +259,14 @@ class DefaultDecoder(IDecoder):
         data = struct.unpack(unpack_format, pkt)
 
         acc_data = np.array(data[2:5]) / int16_scale * acc_scale
-        angvel_data = np.array(data[5:8]) / int16_scale * gyro_scale
+        ang_vel_data = np.array(data[5:8]) / int16_scale * gyro_scale
         angle_data = np.array(data[8:]) / int16_scale * angle_scale
 
-        acc_msg = Msg(_timestamp_ms=timestamp, _type=MsgType.ACCELERATION, _data=acc_data)
-        angvel_msg = Msg(_timestamp_ms=timestamp, _type=MsgType.ANGULAR_VELOCITY, _data=angvel_data)
-        angle_msg = Msg(_timestamp_ms=timestamp, _type=MsgType.ANGLE, _data=angle_data)
+        acc_msg = Msg(_seq=DefaultDecoder.sequence, _timestamp_ms=timestamp, _type=MsgType.ACCELERATION, _data=acc_data)
+        ang_vel_msg = Msg(_seq=DefaultDecoder.sequence, _timestamp_ms=timestamp, _type=MsgType.ANGULAR_VELOCITY, _data=ang_vel_data)
+        angle_msg = Msg(_seq=DefaultDecoder.sequence, _timestamp_ms=timestamp, _type=MsgType.ANGLE, _data=angle_data)
 
-        return [acc_msg, angvel_msg, angle_msg]
+        return [acc_msg, ang_vel_msg, angle_msg]
 
 
 @dataclass
@@ -293,9 +315,10 @@ class TimestampDecoder(IDecoder):
         )
 
         return Msg(
-            timestamp_ms=timestamp,
-            type=MsgType.TIMESTAMP,
-            data=device_date,
+            _seq=TimestampDecoder.sequence,
+            _timestamp_ms=timestamp,
+            _type=MsgType.TIMESTAMP,
+            _data=device_date,
         )
 
 
@@ -332,9 +355,10 @@ class TemperatureDecoder(IDecoder):
         temperature_c = raw_temp / 100.0
 
         return Msg(
-            timestamp_ms=timestamp,
-            type=MsgType.TEMPERATURE,
-            data=temperature_c,
+            _seq=TemperatureDecoder.sequence,
+            _timestamp_ms=timestamp,
+            _type=MsgType.TEMPERATURE,
+            _data=temperature_c,
         )
 
 
@@ -370,18 +394,7 @@ class WitProtocol:
     SET_ANGLE_REF_CALIBRATION_MODE = 0x08
     MAG_DUAL_PLANE_CALIBRATION_MODE = 0x09
 
-    _default_decoder: DefaultDecoder = field(init=False)
-    _timestamp_decoder: TimestampDecoder = field(init=False)
-    _quaternion_decoder: QuaternionDecoder = field(init=False)
-    _temperature_decoder: TemperatureDecoder = field(init=False)
-    _logger: logging.Logger = field(init=False, default_factory=logging.getLogger)
 
-    def __post_init__(self):
-        self._default_decoder = DefaultDecoder()
-        self._timestamp_decoder = TimestampDecoder()
-        self._temperature_decoder = TemperatureDecoder()
-        self._quaternion_decoder = QuaternionDecoder()
-    
     def decode(self, pkg_timestamp: int, msg: bytes) -> Generator[Msg, None, None]:
         """
         Decode a byte stream from the WT901 BLE device into Msg objects.
@@ -404,7 +417,7 @@ class WitProtocol:
         offset = 0
         while offset < len(msg):
             if msg[offset] != WitPkt.HEADER.value:
-                self._logger.error(
+                protocol_logger.error(
                     "Invalid packet header at offset %d: %02X", offset, msg[offset]
                 )
                 offset += 1
@@ -412,17 +425,17 @@ class WitProtocol:
 
             flag = msg[offset + 1]
 
-            if flag == WitPkt.DEFAULTFLAG.value:
+            if flag == WitPkt.DEFAULT_FLAG.value:
                 pkt_size = WitPkt.DEFAULT_LENGTH.value
-            elif flag == WitPkt.REGISTERFLAG.value:
+            elif flag == WitPkt.REGISTER_FLAG.value:
                 pkt_size = WitPkt.SINGLE_REGISTER_LENGTH.value
             else:
-                self._logger.error("Unknown flag %02X at offset %d", flag, offset)
+                protocol_logger.error("Unknown flag %02X at offset %d", flag, offset)
                 offset += 1
                 continue
 
             if offset + pkt_size > len(msg):
-                self._logger.warning(
+                protocol_logger.warning(
                     "Incomplete packet at end of buffer: need %d, have %d",
                     pkt_size,
                     len(msg) - offset,
@@ -433,21 +446,22 @@ class WitProtocol:
             pkt_type = pkt[2]
 
             try:
-                if flag == WitPkt.DEFAULTFLAG.value:
-                    yield self._default_decoder.decode(pkg_timestamp, pkt)
-                elif flag == WitPkt.REGISTERFLAG.value:
-                    if pkt_type == Register.TIMESTAMP.address:
+                if flag == WitPkt.DEFAULT_FLAG.value:
+                    yield from DefaultDecoder.decode(pkg_timestamp, pkt)
+                elif flag == WitPkt.REGISTER_FLAG.value:
+                    if pkt_type == Register.TIMESTAMP.value.address:
                         yield TimestampDecoder.decode(pkg_timestamp, pkt)
-                    elif pkt_type == Register.QUATERNIONS.address:
+                    elif pkt_type == Register.QUATERNIONS.value.address:
                         yield QuaternionDecoder.decode(pkg_timestamp, pkt)
-                    elif pkt_type == Register.TEMP.address:
+                    elif pkt_type == Register.TEMP.value.address:
                         yield TemperatureDecoder.decode(pkg_timestamp, pkt)
                     else:
-                        self._logger.warning(
-                            f"Unsupported decoder {Register.get_name_from_address(pkt_type)}"
+                        protocol_logger.warning(
+                            "Unsupported decoder %s",
+                            Register.get_reg_name_from_address(pkt_type),
                         )
             except Exception as e:
-                self._logger.error(f"Failed to decode packet at offset {offset}: {e}")
+                protocol_logger.error("Failed to decode packet at offset %d: %s", offset, e)
 
             offset += pkt_size
 
@@ -559,11 +573,11 @@ class WitProtocol:
         Synchronize the device time with the host time.
         """
         msg = [struct.pack(
-            "<BBBBB", 0xFF, 0xAA, Register.YYMM.address, date.year % 100, date.month
+            "<BBBBB", 0xFF, 0xAA, Register.TIMESTAMP.value.address, date.year % 100, date.month
         ), struct.pack(
-            "<BBBBB", 0xFF, 0xAA, Register.DDHH.address, date.day, date.hour
+            "<BBBBB", 0xFF, 0xAA, Register.TIMESTAMP.value.address, date.day, date.hour
         ), struct.pack(
-            "<BBBBB", 0xFF, 0xAA, Register.MMSS.address, date.minute, date.second
+            "<BBBBB", 0xFF, 0xAA, Register.TIMESTAMP.value.address, date.minute, date.second
         )]
         # WIT communication protocol stores the year as a single byte, which only has space for two digits (0–255).
 
@@ -573,5 +587,5 @@ class WitProtocol:
 
         # Set Milliseconds
         ms = round(date.microsecond / 1000)
-        msg.append(struct.pack("<BBBH", 0xFF, 0xAA, Register.MS.address, ms))
+        msg.append(struct.pack("<BBBH", 0xFF, 0xAA, Register.TIMESTAMP.value.address, ms))
         return msg

@@ -12,11 +12,9 @@ License: MIT
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from itertools import count
-from typing import ClassVar, Optional, Union
+from typing import Optional, Union
 
 import numpy as np
-from attrs import field
 
 
 class MsgType(Enum):
@@ -58,11 +56,10 @@ class Msg:
         Decoded data payload, where values can be floats, numpy arrays, datetimes, or None.
     """
 
-    counter: ClassVar[count] = count(start=0, step=1)
-    _seq: int = field(init=False, factory=lambda: next(Msg.counter))
-    _timestamp_ms: float = field(init=True)
-    _type: MsgType = field(init=True)
-    _data: Optional[Union[float, np.ndarray, datetime]] = field(init=True)
+    _seq: int
+    _timestamp_ms: float
+    _type: MsgType
+    _data: Optional[Union[float, np.ndarray, datetime]]
 
     def __repr__(self) -> str:
         """
@@ -74,7 +71,7 @@ class Msg:
         """
         Readable string representation of the Msg for logging or debugging.
         """
-        return f"[{self.seq}] {self.type.name} @ {self.stamp:.1f}ms Data: {self.data}"
+        return f"[{self._seq}] {self.type.name} @ {self.stamp:.1f}ms Data: {self.data}"
 
     def to_dict(self) -> dict:
         """

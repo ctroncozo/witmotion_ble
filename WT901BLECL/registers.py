@@ -16,8 +16,8 @@ Version: 1.0.0
 
 import struct
 from enum import Enum
-from types import MappingProxyType as Map
-from typing import Final, Optional
+from dataclasses import dataclass
+from typing import Optional
 
 
 class RegName(Enum):
@@ -39,6 +39,18 @@ class RegName(Enum):
     ORIENTATION = "orientation"
     QUATERNIONS = "quaternions"
 
+    def __str__(self) -> str:
+        return self.value
+
+@dataclass(frozen=True)
+class RegisterMap:
+    """Metadata for a WIT sensor register."""
+    name: str
+    address: int
+
+    def __str__(self) -> str:
+        """Return a readable string describing the register."""
+        return f"Register name: {self.name}, address: {hex(self.address)}"
 
 class Register(Enum):
     """
@@ -47,48 +59,35 @@ class Register(Enum):
     Each member contains:
     - `name`: A human-readable name for the register
     - `address`: The register address (as used in communication)
-    - `format`: A struct-compatible format string for parsing binary data
 
     Note:
     - Some format values are marked "NOTIMPLEMENTED" where decoding is not yet defined.
     - Address references follow the WIT standard communication protocol.
     """
-    READ_ADDRESS_REG: Final[int] = 0x27
-
+    READ_ADDRESS_REG = RegisterMap("read_address_register", 0x27)
 
     # Default register data packet (acceleration, angular velocity, angle)
-    DEFAULT: Final[Map[RegName, int]] = Map({"name": "default", "address": 0x61})
+    DEFAULT = RegisterMap("default", 0x61)
 
     # Single return registers data packets
-    TIMESTAMP: Final[Map[RegName, int]] = Map({"name": RegName.TIMESTAMP, "address": 0x30})
-    MAGFIELD: Final[Map[RegName, int]] = Map({"name": RegName.MAGFIELD, "address": 0x3A})
-    QUATERNIONS: Final[Map[RegName, int]] = Map({"name": RegName.QUATERNIONS, "address": 0x51})
-    TEMP: Final[Map[RegName, int]] = Map({"name": RegName.TEMP, "address": 0x40})
+    TIMESTAMP = RegisterMap("timestamp", 0x30)
+    MAGFIELD = RegisterMap("magnetic_field", 0x3A)
+    QUATERNIONS = RegisterMap("quaternions", 0x51)
+    TEMP = RegisterMap("temperature", 0x40)
 
     # Configuration registers
-    SAVE: Final[Map[RegName, int]] = Map({"name": RegName.SAVE, "address": 0x00})
-    CALSW: Final[Map[RegName, int]] = Map({"name": RegName.CALSW, "address": 0x01})
-    RATE: Final[Map[RegName, int]] = Map({"name": RegName.RATE, "address": 0x03})
-    BAUD: Final[Map[RegName, int]] = Map({"name": RegName.BAUD, "address": 0x04})
+    SAVE = RegisterMap("save", 0x00)
+    CALSW = RegisterMap("calibration_switch", 0x01)
+    RATE = RegisterMap("rate", 0x03)
+    BAUD = RegisterMap("baud_rate", 0x04)
 
     # Sensor calibration offsets
-    ACCEL_OFFSET: Final[Map[RegName, int]] = Map({"name": RegName.ACCEL_OFFSET, "address": 0x05})
-    ANGVEL_OFFSET: Final[Map[RegName, int]] = Map({"name": RegName.ANGVEL_OFFSET, "address": 0x08})
-    MAG_OFFSET: Final[Map[RegName, int]] = Map({"name": RegName.MAG_OFFSET, "address": 0x0A})
-
-    @property
-    def reg_name(self) -> RegName:
-        """Return the human-readable name of the register."""
-        return self.value["name"]
-
-    @property
-    def address(self) -> int:
-        """Return the address of the register."""
-        return self.value["address"]
+    ACCEL_OFFSET = RegisterMap("accel_offset", 0x05)
+    ANGVEL_OFFSET = RegisterMap("angvel_offset", 0x08)
+    MAG_OFFSET = RegisterMap("mag_offset", 0x0A)
 
     def __add__(self, other):
-        """Addition is defined only as address summation (not generally meaningful)."""
-        return self.value["address"] + other.value["address"]
+        raise AttributeError("Addition is not allowed on Register types")
 
     def __sub__(self, other):
         raise AttributeError("Subtraction is not allowed on Register types")
@@ -102,20 +101,16 @@ class Register(Enum):
     def __truediv__(self, other):
         raise AttributeError("Division is not allowed on Register types")
 
-    def __str__(self) -> str:
-        """Return a readable string describing the register."""
-        return f"Register name: {self.name}, address: {hex(self.address)}"
-
     @classmethod
-    def get_name_from_address(cls, address: int) -> str:
+    def get_reg_name_from_address(cls, address: int) -> str:
         """Get the register name from its address."""
         for reg in cls:
-            if reg.address == address:
-                return reg.name
+            if reg.value.address == address:
+                return reg.value.name
         raise ValueError(f"Invalid register address: {hex(address)}")
 
     @classmethod
-    def set_register_msg(cls, register: Map, value: int) -> bytes:
+    def set_register_msg(cls, register: RegisterMap, value: int) -> bytes:
         """
         Create a register set message to write to a specific register.
 
@@ -131,11 +126,14 @@ class Register(Enum):
         bytes
             The serialized register set message.
         """
-        wit_command_header_bytes = [0xFF, 0xAA]
+        header_flag_1 = 0xFF
+        header_flag_2 = 0xAA
+        wit_command_header_bytes = [header_flag_1, header_flag_2]
         return struct.pack("<BBBBB", *wit_command_header_bytes, register.address, value, 0x00)
 
+
     @classmethod
-    def data_pack_request_msg(cls, register: Map) -> Optional[bytes]:
+    def data_pack_request_msg(cls, register: RegisterMap) -> Optional[bytes]:
         """
         Create a register request message to read from a specific register.
 
@@ -146,8 +144,8 @@ class Register(Enum):
 
         Parameters
         ----------
-        register : Map
-            A Map object containing the register's metadata (name, address, format).
+        register : RegisterMap
+            A RegisterMap object containing the register's metadata (name, address, format).
 
         Returns
         -------
@@ -155,7 +153,7 @@ class Register(Enum):
             The serialized request message to be sent to the sensor, or None if the
             requested register is the default broadcast register.
         """
-        if register.address == Register.DEFAULT.address:
+        if register == cls.DEFAULT:
             return None
         
-        return Register.set_register_msg(Register.READ_ADDRESS_REG, register.address)
+        return Register.set_register_msg(cls.READ_ADDRESS_REG.value, register.address)
