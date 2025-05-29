@@ -74,8 +74,8 @@ class Wit901BLEClient:
     '>>> await client.calibrate_accelerometer()'
     '>>> await client.stop()'
     '>>> await bleak_client.stream()'
-   >># Wait for the stop ev'ent
-    ' await stop_event.wait()'
+    # Wait for the stop event
+    '>>> await stop_event.wait()'
     """
 
     _client: BleakClient = field(init=True)
