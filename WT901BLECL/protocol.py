@@ -570,20 +570,10 @@ class WitProtocol:
         """
         Synchronize the device time with the host time.
         """
-        msg = [struct.pack(
-            "<BBBBB", 0xFF, 0xAA, Register.TIMESTAMP.value.address, date.year % 100, date.month
-        ), struct.pack(
-            "<BBBBB", 0xFF, 0xAA, Register.TIMESTAMP.value.address, date.day, date.hour
-        ), struct.pack(
-            "<BBBBB", 0xFF, 0xAA, Register.TIMESTAMP.value.address, date.minute, date.second
-        )]
-        # WIT communication protocol stores the year as a single byte, which only has space for two digits (0–255).
-
-        # Set Day and Hour
-
-        # Set Minute and Second
-
-        # Set Milliseconds
-        ms = round(date.microsecond / 1000)
-        msg.append(struct.pack("<BBBH", 0xFF, 0xAA, Register.TIMESTAMP.value.address, ms))
+        msg = [
+            struct.pack("<BBBBBB", 0xFF, 0xAA, Register.YYMM.value.address, date.year % 100, date.month, 0x00),
+            struct.pack("<BBBBBB", 0xFF, 0xAA, Register.DDHH.value.address, date.day, date.hour, 0x00),
+            struct.pack("<BBBBBB", 0xFF, 0xAA, Register.MMSS.value.address, date.minute, date.second, 0x00),
+            struct.pack("<BBBhB", 0xFF, 0xAA, Register.MS.value.address, round(date.microsecond / 1000), 0x00)
+        ]
         return msg
