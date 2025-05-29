@@ -1,0 +1,4 @@
+attrs~=25.3.0
+bleak~=0.22.3
+pynput~=1.8.1
+numpy~=2.2.6
