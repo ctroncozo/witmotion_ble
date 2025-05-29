@@ -17,20 +17,18 @@ License: MIT
 import logging
 import struct
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
 from typing import ClassVar, Generator, List, Optional
 
 import numpy as np
 
-from time_handler import TimeHandler
-
 from WT901BLECL.message import Msg, MsgType
 from WT901BLECL.registers import Register
 
-
 protocol_logger = logging.getLogger("WitProtocol")
+
 
 class GattUIDD(Enum):
     """
@@ -214,7 +212,7 @@ class QuaternionDecoder(IDecoder):
             _seq=QuaternionDecoder.sequence,
             _timestamp_ms=timestamp,
             _type=MsgType.QUATERNIONS,
-            _data= quat,
+            _data=quat,
         )
 
 
@@ -263,7 +261,8 @@ class DefaultDecoder(IDecoder):
         angle_data = np.array(data[8:]) / int16_scale * angle_scale
 
         acc_msg = Msg(_seq=DefaultDecoder.sequence, _timestamp_ms=timestamp, _type=MsgType.ACCELERATION, _data=acc_data)
-        ang_vel_msg = Msg(_seq=DefaultDecoder.sequence, _timestamp_ms=timestamp, _type=MsgType.ANGULAR_VELOCITY, _data=ang_vel_data)
+        ang_vel_msg = Msg(_seq=DefaultDecoder.sequence, _timestamp_ms=timestamp, _type=MsgType.ANGULAR_VELOCITY,
+                          _data=ang_vel_data)
         angle_msg = Msg(_seq=DefaultDecoder.sequence, _timestamp_ms=timestamp, _type=MsgType.ANGLE, _data=angle_data)
 
         return [acc_msg, ang_vel_msg, angle_msg]
@@ -394,7 +393,6 @@ class WitProtocol:
     SET_ANGLE_REF_CALIBRATION_MODE = 0x08
     MAG_DUAL_PLANE_CALIBRATION_MODE = 0x09
 
-
     def decode(self, pkg_timestamp: int, msg: bytes) -> Generator[Msg, None, None]:
         """
         Decode a byte stream from the WT901 BLE device into Msg objects.
@@ -442,7 +440,7 @@ class WitProtocol:
                 )
                 break
 
-            pkt = msg[offset : offset + pkt_size]
+            pkt = msg[offset: offset + pkt_size]
             pkt_type = pkt[2]
 
             try:

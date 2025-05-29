@@ -20,6 +20,7 @@ from time_handler import TimeHandler
 
 wit_logger = logging.getLogger("Wit901BLEClient")
 
+
 @dataclass
 class Wit901BLEClient:
     """
@@ -132,7 +133,7 @@ class Wit901BLEClient:
         Synchronize the device time with the host time.
         """
         await self.send_command(WitProtocol.synchronize_instruction(self._timer.synchronize()))
-    
+
     async def get_gatts(self):
         """
         Extract notify and write characteristics from the Bleak client
@@ -143,8 +144,8 @@ class Wit901BLEClient:
         """
         for service in self._client.services:
             if service.uuid in (
-                GattUIDD.WIT_SERVICE_UUID.value,
-                GattUIDD.WIT_GATT_PROFILE.value,
+                    GattUIDD.WIT_SERVICE_UUID.value,
+                    GattUIDD.WIT_GATT_PROFILE.value,
             ):
                 for characteristic in service.characteristics:
                     if characteristic.uuid == GattUIDD.WIT_READ_CHAR_UUID.value:

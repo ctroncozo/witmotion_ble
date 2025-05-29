@@ -1,14 +1,16 @@
+import asyncio
+import logging
+import sys
+import time
 
 from bleak import BLEDevice, BleakClient
-import asyncio
-from wit_901_ble_client import Wit901BLEClient
 from pynput import keyboard
+
 from scan import scan_for_device
-import time
-import sys
-import logging
+from wit_901_ble_client import Wit901BLEClient
 
 app_logger = logging.getLogger("app")
+
 
 async def connect(ble_device: BLEDevice, stop_event: asyncio.Event):
     """

@@ -9,18 +9,17 @@ Author: Cristian Troncoso
 Email: ctroncoso.ai@gmail.com
 """
 
-import logging
 import asyncio
-import time
+import logging
 import sys
+import time
 from dataclasses import dataclass
 from typing import Optional
 
+from attrs import field
 from bleak import BleakScanner
 from bleak.backends.device import BLEDevice
 from bleak.backends.scanner import AdvertisementData
-from attrs import field
-
 
 scan_logger = logging.getLogger("ScanLogger")
 
@@ -95,7 +94,8 @@ async def scan_runner(timeout: int = 5, stop_event: Optional[asyncio.Event] = No
         return {}
 
 
-async def scan_for_device(mac: str, timeout: int = 5, stop_event: Optional[asyncio.Event] = None) -> Optional[ScannData]:
+async def scan_for_device(mac: str, timeout: int = 5, stop_event: Optional[asyncio.Event] = None) -> Optional[
+    ScannData]:
     """
     Scan for BLE devices using Bleak, returning devices found within a time or packet limit.
 
@@ -124,6 +124,7 @@ async def scan_for_device(mac: str, timeout: int = 5, stop_event: Optional[async
         scan_logger.info("Scan for device interrupted by user or cancellation.")
         return None
 
+
 def main():
     """
     Main function to run the scan.
@@ -131,6 +132,7 @@ def main():
     logging.basicConfig(level=logging.INFO)
     device = asyncio.run(scan_for_device("FC:7F:CD:6E:97:25", 2))
     print(device)
+
 
 if __name__ == "__main__":
     main()
