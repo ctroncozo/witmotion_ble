@@ -32,7 +32,8 @@ class ScannData:
     advertisement_data: AdvertisementData = field(init=True)
 
 
-async def scan(timeout: int = 5, stop_event: Optional[asyncio.Event] = None) -> dict[str, ScannData]:
+async def scan(timeout: int = 5,
+               stop_event: Optional[asyncio.Event] = None) -> dict[str, ScannData]:
     """
     Scan for BLE devices using Bleak, returning devices found within a time or packet limit.
 
@@ -69,7 +70,8 @@ async def scan(timeout: int = 5, stop_event: Optional[asyncio.Event] = None) -> 
     return devices_found_dic
 
 
-async def scan_runner(timeout: int = 5, stop_event: Optional[asyncio.Event] = None) -> dict[str, ScannData]:
+async def scan_runner(timeout: int = 5,
+                      stop_event: Optional[asyncio.Event] = None) -> dict[str, ScannData]:
     """
     Run the scan coroutine and return the scanned devices.
 
@@ -94,8 +96,8 @@ async def scan_runner(timeout: int = 5, stop_event: Optional[asyncio.Event] = No
         return {}
 
 
-async def scan_for_device(mac: str, timeout: int = 5, stop_event: Optional[asyncio.Event] = None) -> Optional[
-    ScannData]:
+async def scan_for_device(mac: str, timeout: int = 5,
+        stop_event: Optional[asyncio.Event] = None) -> Optional[ScannData]:
     """
     Scan for BLE devices using Bleak, returning devices found within a time or packet limit.
 

@@ -15,9 +15,9 @@ from typing import Callable, Optional
 
 from bleak import BleakClient, BleakError, BleakGATTCharacteristic
 
+from WT901BLECL.message import Msg
 from WT901BLECL.protocol import UpdateRate, GattUIDD, WitProtocol
 from WT901BLECL.registers import Register
-from WT901BLECL.message import Msg
 from WT901BLECL.time_handler import TimeHandler
 
 wit_logger = logging.getLogger("Wit901BLEClient")

@@ -14,10 +14,10 @@ License: MIT
 Version: 1.0.0
 """
 
+import struct
 from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
-import struct
 
 
 class RegName(Enum):
@@ -73,10 +73,10 @@ class Register(Enum):
 
     # Single return registers data packets
     TIMESTAMP = RegisterMap("timestamp", 0x30)
-    YYMM = RegisterMap("yymm", 0x30) # Year and month
-    DDHH = RegisterMap("ddhh", 0x31) # Day and hour
-    MMSS = RegisterMap("mmss", 0x32) # Minute and second
-    MS = RegisterMap("millistamp", 0x33) # Milliseconds
+    YYMM = RegisterMap("yymm", 0x30)  # Year and month
+    DDHH = RegisterMap("ddhh", 0x31)  # Day and hour
+    MMSS = RegisterMap("mmss", 0x32)  # Minute and second
+    MS = RegisterMap("millistamp", 0x33)  # Milliseconds
     MAGFIELD = RegisterMap("magnetic_field", 0x3A)
     QUATERNIONS = RegisterMap("quaternions", 0x51)
     TEMP = RegisterMap("temperature", 0x40)

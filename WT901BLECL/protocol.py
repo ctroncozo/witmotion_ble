@@ -260,10 +260,13 @@ class DefaultDecoder(IDecoder):
         ang_vel_data = np.array(data[5:8]) / int16_scale * gyro_scale
         angle_data = np.array(data[8:]) / int16_scale * angle_scale
 
-        acc_msg = Msg(_seq=DefaultDecoder.sequence, _timestamp_ms=timestamp, _type=MsgType.ACCELERATION, _data=acc_data)
-        ang_vel_msg = Msg(_seq=DefaultDecoder.sequence, _timestamp_ms=timestamp, _type=MsgType.ANGULAR_VELOCITY,
+        acc_msg = Msg(_seq=DefaultDecoder.sequence, _timestamp_ms=timestamp,
+                      _type=MsgType.ACCELERATION, _data=acc_data)
+        ang_vel_msg = Msg(_seq=DefaultDecoder.sequence, _timestamp_ms=timestamp,
+                          _type=MsgType.ANGULAR_VELOCITY,
                           _data=ang_vel_data)
-        angle_msg = Msg(_seq=DefaultDecoder.sequence, _timestamp_ms=timestamp, _type=MsgType.ANGLE, _data=angle_data)
+        angle_msg = Msg(_seq=DefaultDecoder.sequence, _timestamp_ms=timestamp, _type=MsgType.ANGLE,
+                        _data=angle_data)
 
         return [acc_msg, ang_vel_msg, angle_msg]
 
@@ -393,7 +396,8 @@ class WitProtocol:
     SET_ANGLE_REF_CALIBRATION_MODE = 0x08
     MAG_DUAL_PLANE_CALIBRATION_MODE = 0x09
 
-    def decode(self, pkg_timestamp: int, msg: bytes) -> Generator[Msg, None, None]:
+    @staticmethod
+    def decode(pkg_timestamp: int, msg: bytes) -> Generator[Msg, None, None]:
         """
         Decode a byte stream from the WT901 BLE device into Msg objects.
 
@@ -571,9 +575,13 @@ class WitProtocol:
         Synchronize the device time with the host time.
         """
         msg = [
-            struct.pack("<BBBBBB", 0xFF, 0xAA, Register.YYMM.value.address, date.year % 100, date.month, 0x00),
-            struct.pack("<BBBBBB", 0xFF, 0xAA, Register.DDHH.value.address, date.day, date.hour, 0x00),
-            struct.pack("<BBBBBB", 0xFF, 0xAA, Register.MMSS.value.address, date.minute, date.second, 0x00),
-            struct.pack("<BBBhB", 0xFF, 0xAA, Register.MS.value.address, round(date.microsecond / 1000), 0x00)
+            struct.pack("<BBBBBB", 0xFF, 0xAA, Register.YYMM.value.address, date.year % 100,
+                        date.month, 0x00),
+            struct.pack("<BBBBBB", 0xFF, 0xAA, Register.DDHH.value.address, date.day, date.hour,
+                        0x00),
+            struct.pack("<BBBBBB", 0xFF, 0xAA, Register.MMSS.value.address, date.minute,
+                        date.second, 0x00),
+            struct.pack("<BBBhB", 0xFF, 0xAA, Register.MS.value.address,
+                        round(date.microsecond / 1000), 0x00)
         ]
         return msg

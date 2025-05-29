@@ -50,27 +50,45 @@ class TimeHandler():
 
     @property
     def update_interval_ms(self):
+        """
+        Time interval between samples in milliseconds.
+        """
         return self._update_interval_ms
 
     @property
     def update_rate(self):
+        """
+        Update rate in Hz.
+        """
         return self._update_rate
 
     @staticmethod
     def timestamp() -> int:
+        """
+        Returns the current timestamp in milliseconds.
+        """
         return int(datetime.now(timezone.utc).timestamp() * 1000)
 
     def set_host_time_offset(self):
+        """
+        Set the host time offset.
+        """
         self._host_time_offset = datetime.now(timezone.utc)
         self._logger.info("Setting host time offset [%s]", self._host_time_offset)
 
     def _compute_offset_delta_ms(self):
+        """
+        Compute the offset delta in milliseconds.
+        """
         if self._device_time_offset and self._host_time_offset:
             delta = self._host_time_offset - self._device_time_offset
             return delta.total_seconds() * 1000
         return None
 
     def stamp_from_host(self):
+        """
+        Generate a timestamp from the host.
+        """
         if not self._initialized:
             self._device_curr_stamp_ms = 0.0
             self._initialized = True
@@ -81,7 +99,7 @@ class TimeHandler():
 
     def synchronize(self) -> datetime:
         """
-        Returns the current time to be sent to the device.
+        Synchronize the device time with the host time.
         Returns: datetime object.
         """
         now = datetime.now(timezone.utc)

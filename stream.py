@@ -1,3 +1,12 @@
+"""
+Stream data from a WT901BLECL5.0 device.
+
+This module provides a simple interface for streaming data from a WT901BLECL5.0 device.
+
+Author: Cristian Troncoso
+Email: ctroncoso.ai@gmail.com
+License: MIT
+"""
 import asyncio
 import logging
 import sys
@@ -8,7 +17,7 @@ from pynput import keyboard
 
 from scan import scan_for_device
 from WT901BLECL.wit_client import Wit901BLEClient
-from WT901BLECL.message import Msg, MsgType
+from WT901BLECL.message import Msg
 
 app_logger = logging.getLogger("app")
 
