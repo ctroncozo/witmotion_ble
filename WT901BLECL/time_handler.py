@@ -1,8 +1,8 @@
-import struct
 import logging
 from datetime import datetime, timezone
 
 from attr import define, field
+
 
 @define
 class TimeHandler():
@@ -36,7 +36,7 @@ class TimeHandler():
     _update_rate: int = field(init=True, default=0)
     _initialized: bool = field(init=False, default=False)
     _device_curr_stamp_ms: float = field(init=False, default=None)
-    _device_time_offset: datetime= field(init=False, default=None)
+    _device_time_offset: datetime = field(init=False, default=None)
     _host_time_offset: datetime = field(init=False, default=None)
     _update_interval_ms: float = field(init=False, default=0)
     _logger: logging.Logger = field(init=False, default=None)
@@ -84,9 +84,7 @@ class TimeHandler():
         Returns the current time to be sent to the device.
         Returns: datetime object.
         """
-        now =  datetime.now(timezone.utc)
+        now = datetime.now(timezone.utc)
         self._device_time_offset = now
         self._host_time_offset = now
         return now
-
-    

@@ -10,6 +10,12 @@ A Python library and command-line tool for scanning, connecting, and streaming d
 - Synchronize device time with host
 - Easily extensible and modular Python codebase
 
+## TODO
+- Improve exception handling.
+- Support all update rates. Currently only supports 20, 50, and 100 Hz.
+- Only static accelerometer and spherical magnetometer calibration are supported.
+- Currently only supports handling default packets (acceleration, angular velocity, orientation) and timestamp packets. It needs support for magnetometer, quaternions, temperature.
+
 ## Installation
 
 1. **Clone this repository:**
@@ -36,7 +42,7 @@ python scan.py
 
 ### Connect and Stream Data
 ```bash
-python app.py
+python stream.py
 ```
 
 - By default, the main application connects to a hardcoded MAC address (edit `app.py` to change).

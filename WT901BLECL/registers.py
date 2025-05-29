@@ -14,10 +14,10 @@ License: MIT
 Version: 1.0.0
 """
 
-import struct
-from enum import Enum
 from dataclasses import dataclass
+from enum import Enum
 from typing import Optional
+import struct
 
 
 class RegName(Enum):
@@ -42,6 +42,7 @@ class RegName(Enum):
     def __str__(self) -> str:
         return self.value
 
+
 @dataclass(frozen=True)
 class RegisterMap:
     """Metadata for a WIT sensor register."""
@@ -51,6 +52,7 @@ class RegisterMap:
     def __str__(self) -> str:
         """Return a readable string describing the register."""
         return f"Register name: {self.name}, address: {hex(self.address)}"
+
 
 class Register(Enum):
     """
@@ -71,6 +73,10 @@ class Register(Enum):
 
     # Single return registers data packets
     TIMESTAMP = RegisterMap("timestamp", 0x30)
+    YYMM = RegisterMap("yymm", 0x30) # Year and month
+    DDHH = RegisterMap("ddhh", 0x31) # Day and hour
+    MMSS = RegisterMap("mmss", 0x32) # Minute and second
+    MS = RegisterMap("millistamp", 0x33) # Milliseconds
     MAGFIELD = RegisterMap("magnetic_field", 0x3A)
     QUATERNIONS = RegisterMap("quaternions", 0x51)
     TEMP = RegisterMap("temperature", 0x40)
@@ -131,7 +137,6 @@ class Register(Enum):
         wit_command_header_bytes = [header_flag_1, header_flag_2]
         return struct.pack("<BBBBB", *wit_command_header_bytes, register.address, value, 0x00)
 
-
     @classmethod
     def data_pack_request_msg(cls, register: RegisterMap) -> Optional[bytes]:
         """
@@ -155,5 +160,5 @@ class Register(Enum):
         """
         if register == cls.DEFAULT:
             return None
-        
+
         return Register.set_register_msg(cls.READ_ADDRESS_REG.value, register.address)

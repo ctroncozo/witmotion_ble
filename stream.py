@@ -1,14 +1,29 @@
+import asyncio
+import logging
+import sys
+import time
 
 from bleak import BLEDevice, BleakClient
-import asyncio
-from wit_901_ble_client import Wit901BLEClient
 from pynput import keyboard
+
 from scan import scan_for_device
-import time
-import sys
-import logging
+from WT901BLECL.wit_client import Wit901BLEClient
+from WT901BLECL.message import Msg, MsgType
 
 app_logger = logging.getLogger("app")
+
+def streaming_callback(msg: Msg):
+    """
+    Callback function to be called when data is received.
+    Parameters
+    ----------
+    msg : Msg
+        Data received from the device.
+    Returns
+    -------
+    None
+    """
+    app_logger.info("Received data: %s", msg)
 
 async def connect(ble_device: BLEDevice, stop_event: asyncio.Event):
     """
@@ -23,7 +38,12 @@ async def connect(ble_device: BLEDevice, stop_event: asyncio.Event):
     -------
     None
     """
-    bleak_client = Wit901BLEClient(BleakClient(ble_device), 50)
+    bleak_client = Wit901BLEClient(
+        _client=BleakClient(ble_device),
+        _update_rate_hz=50,
+        _stream_timestamps=True,
+        _stream_callback=streaming_callback
+    )
     try:
         await bleak_client.connect()
         await bleak_client.stream()

@@ -11,16 +11,19 @@ License: MIT
 import asyncio
 import logging
 from dataclasses import dataclass, field
+from typing import Callable, Optional
 
 from bleak import BleakClient, BleakError, BleakGATTCharacteristic
 
 from WT901BLECL.protocol import UpdateRate, GattUIDD, WitProtocol
 from WT901BLECL.registers import Register
-from time_handler import TimeHandler
+from WT901BLECL.message import Msg
+from WT901BLECL.time_handler import TimeHandler
 
 wit_logger = logging.getLogger("Wit901BLEClient")
 
-@dataclass
+
+@dataclass(kw_only=True)
 class Wit901BLEClient:
     """
     A client for managing Bluetooth Low Energy (BLE) communication with the WIT901 sensor.
@@ -33,8 +36,16 @@ class Wit901BLEClient:
     ----------
     _client : BleakClient
         The BleakClient instance managing the BLE connection to the sensor.
-    _update_rate : int
+    _update_rate_hz : int
         The sensor's data update rate (Hz).
+    _stream_timestamps : bool
+        Whether to stream timestamp packets from the device.
+    _stream_temperature : bool
+        Whether to stream temperature packets from the device.
+    _stream_quaternions : bool
+        Whether to stream quaternion packets from the device.
+    _stream_callback : Callable[[Msg], None]
+        Callback function for handling streamed Msg objects.
     _timer : TimeHandler
         Utility for synchronizing and managing timing with the sensor.
     _notify_char : BleakGATTCharacteristic
@@ -67,18 +78,22 @@ class Wit901BLEClient:
 
     Example
     -------
-    Supported update rates: 20, 50, 100 Hz
-    '>>> client = Wit901BLEClient(BleakClient(address), update_rate=50)'
-    '>>> await client.start()'
+    Supported update rates: All rates defined in UpdateRate (e.g., 20, 50, 100 Hz)
+    '>>> client = Wit901BLEClient(BleakClient(address), update_rate_hz=50, lambda msg: print(msg))'
+    '>>> await client.connect()'
+    # No need to calibrate every time.
     '>>> await client.calibrate_accelerometer()'
-    '>>> await client.stop()'
-    '>>> await bleak_client.stream()'
-   >># Wait for the stop ev'ent
-    ' await stop_event.wait()'
+    '>>> await client.stream()'
+    # Wait for the stop event
+    '>>> await stop_event.wait()'
     """
 
     _client: BleakClient = field(init=True)
     _update_rate_hz: int = field(init=True)
+    _stream_timestamps: Optional[bool] = field(init=True, default=False)
+    _stream_temperature: Optional[bool] = field(init=True, default=False)
+    _stream_quaternions: Optional[bool] = field(init=True, default=False)
+    _stream_callback: Callable[[Msg], None] = field(init=True, default=None)
     _timer: TimeHandler = field(init=False)
     _notify_char: BleakGATTCharacteristic = field(init=False)
     _write_char: BleakGATTCharacteristic = field(init=False)
@@ -86,7 +101,7 @@ class Wit901BLEClient:
     _update_rate_value: int = field(init=False)
     _wit_protocol: WitProtocol = field(init=False, default=WitProtocol)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         # TODO: Need better way to verify supported rates
         if self._update_rate_hz == 20:
             self._update_rate_value = UpdateRate.R20HZ.value
@@ -97,43 +112,47 @@ class Wit901BLEClient:
         else:
             raise ValueError("Invalid update rate")
 
+        if self._stream_callback is None:
+            raise ValueError("Stream callback must be provided")
         self._timer = TimeHandler(self._update_rate_hz)
         self._wit_protocol = WitProtocol()
 
     @staticmethod
-    async def _countdown(seconds: int):
+    async def _countdown(seconds: int) -> None:
         """Print a countdown to console during calibration."""
         for remaining in range(seconds, 0, -1):
             print(f"\r {remaining}s remaining...", end="", flush=True)
             await asyncio.sleep(1)
         print("\r Calibration complete.")
 
-    async def calibrate_accelerometer(self):
+    async def calibrate_accelerometer(self) -> None:
         """
         Performs automatic calibration of the accelerometer.
         Instruct the user to place the device on all six faces for 5 seconds on each face
         (+X, -X, +Y, -Y, +Z, -Z)
         """
-        await self.send_command(WitProtocol.start_accelerometer_calibration())
+        await self.send_command(WitProtocol.start_accelerometer_calibration(), response=True)
         await self._countdown(5 * 6)
-        await self.send_command(WitProtocol.quit_calibration())
+        await self.send_command(WitProtocol.quit_calibration(), response=True)
 
-    async def calibrate_magnetometer_spherical(self):
+    async def calibrate_magnetometer_spherical(self) -> None:
         """
         Performs automatic calibration of the magnetometer in spherical mode.
         Instruct the user to rotate the device in all directions (e.g., figure-8 motion).
         """
-        await self.send_command(WitProtocol.start_magnetometer_spherical_calibration())
+        await self.send_command(WitProtocol.start_magnetometer_spherical_calibration(), response=True)
         await self._countdown(30)
-        await self.send_command(WitProtocol.quit_calibration())
+        await self.send_command(WitProtocol.quit_calibration(), response=True)
 
-    async def synchronize(self):
+    async def synchronize(self) -> None:
         """
         Synchronize the device time with the host time.
         """
-        await self.send_command(WitProtocol.synchronize_instruction(self._timer.synchronize()))
-    
-    async def get_gatts(self):
+        sync_msgs = WitProtocol.synchronize_instruction(self._timer.synchronize())
+        for msg in sync_msgs:
+            await self.send_command(msg, response=True)
+
+    async def get_gatts(self) -> None:
         """
         Extract notify and write characteristics from the Bleak client
 
@@ -143,8 +162,8 @@ class Wit901BLEClient:
         """
         for service in self._client.services:
             if service.uuid in (
-                GattUIDD.WIT_SERVICE_UUID.value,
-                GattUIDD.WIT_GATT_PROFILE.value,
+                    GattUIDD.WIT_SERVICE_UUID.value,
+                    GattUIDD.WIT_GATT_PROFILE.value,
             ):
                 for characteristic in service.characteristics:
                     if characteristic.uuid == GattUIDD.WIT_READ_CHAR_UUID.value:
@@ -161,13 +180,13 @@ class Wit901BLEClient:
             wit_logger.error("Write characteristics not available")
             raise RuntimeError("Write characteristics not available")
 
-    def _on_disconnect(self):
+    def _on_disconnect(self) -> None:
         """
         Callback function to be called when the client disconnects.
         """
         wit_logger.info("Disconnected successfully!")
 
-    async def connect(self, timeout: int = 10):
+    async def connect(self, timeout: int = 10) -> None:
         """
         Connect to the device.
         Parameters
@@ -189,9 +208,10 @@ class Wit901BLEClient:
         except Exception as e:
             wit_logger.error("Other error: %s", e)
         await self.get_gatts()
-        await self.send_command(Register.set_register_msg(Register.RATE.value, self._update_rate_value))
+        await self.send_command(Register.set_register_msg(Register.RATE.value, self._update_rate_value), response=True)
+        await self.synchronize()
 
-    async def disconnect(self, timeout_secs: int = 5):
+    async def disconnect(self, timeout_secs: int = 5) -> None:
         """
         Disconnect from the device and block until fully disconnected.
         Parameters
@@ -222,20 +242,22 @@ class Wit901BLEClient:
                 f"Unable to disconnect device {self._client.address}"
             )
 
-    async def send_command(self, data: bytes):
+    async def send_command(self, data: bytes, response: bool = False) -> None:
         """
         Send a command to the device.
         Parameters
         ----------
         data : bytes
             Command to send.
+        response : bool
+            Whether to wait for a response.
         Returns
         -------
         None
         """
-        await self._client.write_gatt_char(self._write_char.uuid, data)
+        await self._client.write_gatt_char(self._write_char.uuid, data, response=response)
 
-    async def _notification_handler(self, _, data: bytes):
+    async def _notification_handler(self, _, data: bytes) -> None:
         """
         Async handler for BLE notifications from the WT901 sensor.
 
@@ -251,16 +273,18 @@ class Wit901BLEClient:
         None
         """
         if self._running:
+            if self._stream_timestamps:
+                await self.send_command(Register.data_pack_request_msg(Register.TIMESTAMP.value), response=False)
             try:
                 stamp = self._timer.timestamp()
                 for msg in self._wit_protocol.decode(stamp, data):
-                    wit_logger.info("Notification received: %s", msg)
+                    self._stream_callback(msg)
             except Exception as e:
                 wit_logger.error("Error handling notification: %s", e)
         else:
             wit_logger.warning("Streaming stopped")
 
-    async def stream(self):
+    async def stream(self) -> None:
         """
         Stream data from the device.
         Returns
@@ -273,25 +297,3 @@ class Wit901BLEClient:
                     self._notify_char.uuid, self._notification_handler
                 )
             )
-
-    def stop(self):
-        """
-        Stop streaming data from the device.
-        Returns
-        -------
-        None
-        """
-        raise NotImplementedError("Not implemented")
-
-    def calibrate(self, senser: str):
-        """
-        Calibrate the device. It calibrates one sensor at a time.
-        Parameters
-        ----------
-        senser : str
-            Sensor to calibrate ()
-        Returns
-        -------
-        None
-        """
-        raise NotImplementedError("Not implemented")
