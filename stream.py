@@ -14,7 +14,6 @@ import json
 import logging
 import sys
 import time
-from typing import List, Union
 
 import zmq
 from bleak import BleakClient, BLEDevice
@@ -23,6 +22,7 @@ from pynput import keyboard
 from scan import scan_for_device
 from WT901BLECL.message import Msg, MsgType
 from WT901BLECL.wit_client import Wit901BLEClient
+from WT901BLECL.time_handler import TimeHandler
 
 app_logger = logging.getLogger("app")
 
@@ -46,10 +46,23 @@ async def connect(ble_device: BLEDevice, stop_event: asyncio.Event):
     zmq_socket = context.socket(zmq.PUB)
     zmq_socket.bind("tcp://*:5556")
 
+    timer = TimeHandler(50)
+
+    # Default data packet callback
     def streaming_callback(msg):
         # If a single Msg, print it
         if isinstance(msg, Msg):
-            print(msg)
+            if msg.type.value == MsgType.TIMESTAMP.value:
+                device_time = msg.data
+                host_stamp = timer.timestamp()
+                device_stamp = timer.timestamp(device_time)
+                stamps_diff = abs(host_stamp - device_stamp)
+                # Stream both stamps over ZMQ for PlotJuggler
+                zmq_socket.send_string(json.dumps({
+                    "host_stamp": host_stamp,
+                    "device_stamp": device_stamp,
+                    "stamps_diff": stamps_diff
+                }))
             return
         # If a list of Msg, publish as before
         imu_data = {
@@ -70,10 +83,12 @@ async def connect(ble_device: BLEDevice, stop_event: asyncio.Event):
 
     bleak_client = Wit901BLEClient(
         _client=BleakClient(ble_device),
-        _update_rate_hz=50,
+        _timer=timer,
         _stream_timestamps=True,
         _stream_callback=streaming_callback
     )
+
+    # Bleak client connection
     try:
         await bleak_client.connect()
         await bleak_client.stream()

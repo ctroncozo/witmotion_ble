@@ -16,10 +16,23 @@ research.
 - Synchronize device time with host
 - Easily extensible and modular Python codebase
 
+## Limitations
+### Time Drift in WIT901BLECL5.0 During Bluetooth Streaming
+When using the WIT901BLECL5.0 inertial sensor over Bluetooth, it's normal to observe a fixed offset between the device’s internal clock and the host system’s clock due to differences in clock initialization and hardware timing sources. However, an issue arises when this offset increases over time, indicating a time drift rather than a constant lag.
+
+This unbounded drift is typically caused by clock mismatch between the host and the sensor. The device’s internal timer runs at a slightly different rate than the host clock, and because Bluetooth does not inherently provide strict synchronization or timestamp correction mechanisms, the host continues to accumulate timing error. Over long streaming sessions, even small frequency differences (e.g., in parts per million) can lead to significant drift.
+
+In effect, without compensation, the timestamps associated with sensor data on the host become progressively inaccurate, misaligning data with other time-sensitive systems (e.g., cameras, other sensors).
+
+![TimeDrift](resources/drift.png)
+
+### Synchronization
+To address the issue, a background task was implemented to send a command to the device every 10 seconds, setting its internal timestamp to match the host system’s current time. This simple adjustment resulted in a significant improvement.
+
+In the updated logs (synchronized.png), the timestamp difference no longer increased unboundedly. Instead, it was observed to fluctuate slightly between updates, remaining within a small, controlled range. Through this periodic synchronization, long-term drift was effectively eliminated, ensuring the data remained reliable over time.
+
+![Sync](resources/synchronized.png)
 ## TODO
-- The WT901BLECL5.0 does not send timestamp with the data packets.
-   - Timestamp must be requested to the device and they arrive in a separate packet.
-   - Timestamp must be synchronized with the host.
 - Improve exception handling.
 - Support all update rates. Currently only supports 20, 50, and 100 Hz.
 - Only static accelerometer and spherical magnetometer calibration are supported.

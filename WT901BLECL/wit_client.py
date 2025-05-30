@@ -27,18 +27,16 @@ wit_logger = logging.getLogger("Wit901BLEClient")
 @dataclass(kw_only=True)
 class Wit901BLEClient:
     """
-    A client for managing Bluetooth Low Energy (BLE) communication with the WIT901 sensor.
+    BLE client for the WIT901 sensor, handling BLE communication, data streaming, and time synchronization.
 
-    This class encapsulates the connection, configuration, calibration, and data interaction
-    with a WIT901 BLE sensor using the Bleak library. It provides methods for sending commands,
-    performing sensor calibration, synchronizing device time, and handling BLE notifications.
-
-    Attributes
+    Parameters
     ----------
     _client : BleakClient
         The BleakClient instance managing the BLE connection to the sensor.
-    _update_rate_hz : int
-        The sensor's data update rate (Hz).
+    _timer : TimeHandler
+        Utility for synchronizing and managing timing with the sensor.
+    _synchronize : Optional[bool]
+        Whether to synchronize the device clock with the host system time on connection (default: True).
     _stream_timestamps : bool
         Whether to stream timestamp packets from the device.
     _stream_temperature : bool
@@ -47,8 +45,55 @@ class Wit901BLEClient:
         Whether to stream quaternion packets from the device.
     _stream_callback : Callable[[Msg], None]
         Callback function for handling streamed Msg objects.
-    _timer : TimeHandler
-        Utility for synchronizing and managing timing with the sensor.
+    _notify_char : BleakGATTCharacteristic
+        BLE characteristic used for receiving notifications from the sensor.
+    _write_char : BleakGATTCharacteristic
+        BLE characteristic used for sending commands to the sensor.
+    _running : bool
+        Indicates if the client is actively running and processing data.
+    _wit_protocol : WitProtocol
+        Protocol handler for WIT901-specific command serialization and parsing.
+
+    Methods
+    -------
+    __post_init__():
+        Initializes the client, sets the update rate, prepares timer and protocol handler.
+    calibrate_accelerometer():
+        Initiates and manages the accelerometer calibration process.
+    calibrate_magnetometer_spherical():
+        Initiates and manages the spherical magnetometer calibration.
+    synchronize():
+        Synchronizes the sensor's internal clock with the host system time.
+    get_gatts():
+        Discovers and returns GATT services and characteristics from the sensor.
+    send_command(cmd: bytes):
+        Sends a raw command to the sensor via BLE.
+    start():
+        Starts the BLE client, connects to the sensor, and begins data processing.
+    stop():
+        Stops the BLE client and disconnects from the sensor.
+
+    Streaming
+    ---------
+    Streams both host and device timestamps and their difference (ms) for time alignment and latency analysis (see stream.py for ZMQ output).
+
+    Example
+    -------
+    '>>> client = Wit901BLEClient(BleakClient(address), TimeHandler(50), lambda msg: print(msg))'
+    '>>> await client.connect()'
+    # No need to calibrate every time.
+    '>>> await client.calibrate_accelerometer()'
+    '>>> await client.stream()'
+    # Wait for the stop event
+    '>>> await stop_event.wait()'
+        _stream_timestamps : bool
+        Whether to stream timestamp packets from the device.
+    _stream_temperature : bool
+        Whether to stream temperature packets from the device.
+    _stream_quaternions : bool
+        Whether to stream quaternion packets from the device.
+    _stream_callback : Callable[[Msg], None]
+        Callback function for handling streamed Msg objects.
     _notify_char : BleakGATTCharacteristic
         BLE characteristic used for receiving notifications from the sensor.
     _write_char : BleakGATTCharacteristic
@@ -79,8 +124,7 @@ class Wit901BLEClient:
 
     Example
     -------
-    Supported update rates: All rates defined in UpdateRate (e.g., 20, 50, 100 Hz)
-    '>>> client = Wit901BLEClient(BleakClient(address), update_rate_hz=50, lambda msg: print(msg))'
+    '>>> client = Wit901BLEClient(BleakClient(address), TimeHandler(50),lambda msg: print(msg))'
     '>>> await client.connect()'
     # No need to calibrate every time.
     '>>> await client.calibrate_accelerometer()'
@@ -90,33 +134,32 @@ class Wit901BLEClient:
     """
 
     _client: BleakClient = field(init=True)
-    _update_rate_hz: int = field(init=True)
+    _timer: TimeHandler = field(init=True)
+    _synchronize: Optional[bool] = field(init=True, default=True)
     _stream_timestamps: Optional[bool] = field(init=True, default=False)
     _stream_temperature: Optional[bool] = field(init=True, default=False)
     _stream_quaternions: Optional[bool] = field(init=True, default=False)
     _stream_callback: Callable[[Msg], None] = field(init=True, default=None)
-    _timer: TimeHandler = field(init=False)
     _notify_char: BleakGATTCharacteristic = field(init=False)
     _write_char: BleakGATTCharacteristic = field(init=False)
     _running: bool = field(init=False)
     _update_rate_value: int = field(init=False)
-    _wit_protocol: WitProtocol = field(init=False, default=WitProtocol)
+    _wit_protocol: WitProtocol = field(init=False, default_factory=WitProtocol)
 
     def __post_init__(self) -> None:
         # TODO: Need better way to verify supported rates
-        if self._update_rate_hz == 20:
+        update_rate = self._timer.update_rate
+        if update_rate == 20:
             self._update_rate_value = UpdateRate.R20HZ.value
-        elif self._update_rate_hz == 50:
+        elif update_rate == 50:
             self._update_rate_value = UpdateRate.R50HZ.value
-        elif self._update_rate_hz == 100:
+        elif update_rate == 100:
             self._update_rate_value = UpdateRate.R100HZ.value
         else:
             raise ValueError("Invalid update rate")
 
         if self._stream_callback is None:
             raise ValueError("Stream callback must be provided")
-        self._timer = TimeHandler(self._update_rate_hz)
-        self._wit_protocol = WitProtocol()
 
     @staticmethod
     async def _countdown(seconds: int) -> None:
@@ -152,7 +195,7 @@ class Wit901BLEClient:
         """
         sync_msgs = WitProtocol.synchronize_instruction(self._timer.synchronize())
         for msg in sync_msgs:
-            await self.send_command(msg, response=True)
+            await self.send_command(msg, response=False)
 
     async def get_gatts(self) -> None:
         """
@@ -181,6 +224,16 @@ class Wit901BLEClient:
         if not self._write_char:
             wit_logger.error("Write characteristics not available")
             raise RuntimeError("Write characteristics not available")
+
+    async def periodic_synchronize(self, interval: int = 10):
+        """
+        Periodically synchronize the device time with the host time every `interval` seconds.
+        Only runs if self._synchronize is True.
+        """
+        while self._running and self._synchronize:
+            await self.synchronize()
+            await asyncio.sleep(interval)
+            wit_logger.info("Synchronized successfully!")
 
     def _on_disconnect(self) -> None:
         """
@@ -213,6 +266,9 @@ class Wit901BLEClient:
         await self.send_command(Register.set_register_msg(
             Register.RATE.value, self._update_rate_value), response=True)
         await self.synchronize()
+        # Start periodic synchronization if enabled
+        if self._synchronize:
+            self._sync_task = asyncio.create_task(self.periodic_synchronize())
 
     async def disconnect(self, timeout_secs: int = 5) -> None:
         """
@@ -228,6 +284,8 @@ class Wit901BLEClient:
         wit_logger.info("Disconnecting device %s", self._client.address)
         await self._client.disconnect()
         self._running = False
+        if hasattr(self, '_sync_task'):
+            self._sync_task.cancel()
         disconnected = False
         for _ in range(timeout_secs):
             if not self._client.is_connected:
@@ -290,7 +348,16 @@ class Wit901BLEClient:
 
     async def stream(self) -> None:
         """
-        Stream data from the device.
+        Start streaming data from the WT901 BLE device.
+
+        This method enables BLE notifications on the device's notify characteristic and
+        processes incoming data asynchronously. It uses an asyncio.TaskGroup to handle
+        notification processing, allowing for concurrent tasks if needed in the future.
+
+        The notification handler decodes each incoming BLE packet, attaches a host timestamp,
+        and invokes the user-provided callback for each decoded message. If timestamp streaming
+        is enabled, a request for the device timestamp is sent with each notification.
+
         Returns
         -------
         None
