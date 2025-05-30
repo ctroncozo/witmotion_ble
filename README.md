@@ -1,8 +1,14 @@
 # WT901BLECL5.0 BLE Python Client
 
-A Python library and command-line tool for scanning, connecting, and streaming data from WT901BLECL5.0 Bluetooth Low Energy (BLE) Inertial Measurement Units (IMUs) and compatible sensors. This project enables real-time access to orientation, acceleration, gyroscope, and other sensor data for applications in robotics, sports analytics, IoT, and research.
+A Python library and command-line tool for scanning, connecting, and streaming data from WT901BLECL5.0 Bluetooth Low
+Energy (BLE) Inertial Measurement Units (IMUs) and compatible sensors. This project enables real-time access to
+orientation, acceleration, gyroscope, and other sensor data for applications in robotics, sports analytics, IoT, and
+research.
+
+![Demo](resources/imu_plot.gif)
 
 ## Features
+
 - Scan for nearby WT901BLECL5.0 and compatible BLE IMU devices
 - Connect to devices and manage BLE connections robustly
 - Stream and decode sensor data (acceleration, angular velocity, orientation, quaternions, temperature, timestamp, etc.)
@@ -11,10 +17,14 @@ A Python library and command-line tool for scanning, connecting, and streaming d
 - Easily extensible and modular Python codebase
 
 ## TODO
+- The WT901BLECL5.0 does not send timestamp with the data packets.
+   - Timestamp must be requested to the device and they arrive in a separate packet.
+   - Timestamp must be synchronized with the host.
 - Improve exception handling.
 - Support all update rates. Currently only supports 20, 50, and 100 Hz.
 - Only static accelerometer and spherical magnetometer calibration are supported.
-- Currently only supports handling default packets (acceleration, angular velocity, orientation) and timestamp packets. It needs support for magnetometer, quaternions, temperature.
+- Currently only supports handling default packets (acceleration, angular velocity, orientation) and timestamp packets.
+  It needs support for magnetometer, quaternions, temperature.
 
 ## Installation
 
@@ -36,22 +46,33 @@ A Python library and command-line tool for scanning, connecting, and streaming d
 ## Usage
 
 ### Scan for Devices
+
 ```bash
 python scan.py
 ```
 
-### Connect and Stream Data
+### Stream Data
+Run the following command in a terminal:
 ```bash
 python stream.py
 ```
-
 - By default, the main application connects to a hardcoded MAC address (edit `app.py` to change).
 - Press `q` to gracefully disconnect and stop streaming.
 
+#### Visualization
+Visualize data with plotjuggler https://github.com/facontidavide/PlotJuggler
+* Load the following layout file: `acceleration_layout.xml`
+* Select ZMQ TCP socket as data source
+* Select the following socket: `tcp://localhost:5556`
+* Press start
+![PlotJuggler](resources/plotjuggler.png)
+
 ### Calibrate Sensors
+
 Calibration routines are available in the `BleakClientWrapper` class. See `app.py` for usage examples.
 
 ## Code Structure
+
 - `app.py` - Main entry point for connecting and streaming from a device
 - `scan.py` - BLE device scanning utilities
 - `client.py` - BLE client abstraction
@@ -60,14 +81,17 @@ Calibration routines are available in the `BleakClientWrapper` class. See `app.p
 - `calibrate.py` - (Optional) Calibration routines
 
 ## Device Addresses
+
 - Example WT901BLECL5.0 MAC: `FC:7F:CD:6E:97:25`
 - Example MetaMotionS MAC: `EE:33:49:03:91:45`
 
 ## References
-- [WT901BLECL5.0 Data Sheet](documentation/wit_standard_comm_protocol.pdf)
-- [WIT Standard Communication Protocol](documentation/WT901BLECL_data_sheet.pdf)
+
+- [WT901BLECL5.0 Data Sheet](resources/WT901BLECL_data_sheet.pdf)
+- [WIT Standard Communication Protocol](resources/wit_standard_comm_protocol.pdf)
 
 ## License
+
 MIT License
 
 ---

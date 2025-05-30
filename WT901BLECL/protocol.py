@@ -1,4 +1,5 @@
 """
+file: protocol.py
 WT901 BLE Packet Decoding Utilities
 
 This module provides interfaces for communicating with the WT901 BLE device
@@ -20,7 +21,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
-from typing import ClassVar, Generator, List, Optional
+from typing import ClassVar, Generator, List, Optional, Union
 
 import numpy as np
 
@@ -227,14 +228,16 @@ class DefaultDecoder(IDecoder):
     @classmethod
     def _decode_impl(cls, timestamp: int, pkt: bytes) -> List[Msg]:
         """
-        Decode the WT901 default IMU packet containing acceleration, angular velocity, and orientation.
+        Decode the WT901 default IMU packet containing acceleration, angular velocity,
+        and orientation.
 
         The default packet (flag 0x61) includes 3 sets of 3-axis measurements:
             - Acceleration: scaled to ±16g
             - Angular velocity: scaled to ±2000 deg/s
             - Euler angles (orientation): scaled to ±180 degrees
 
-        Each group is encoded as signed 16-bit integers (int16), requiring normalization (scaled to [-1, 1]).
+        Each group is encoded as signed 16-bit integers (int16), requiring normalization
+        (scaled to [-1, 1]).
 
         Parameters
         ----------
@@ -260,10 +263,13 @@ class DefaultDecoder(IDecoder):
         ang_vel_data = np.array(data[5:8]) / int16_scale * gyro_scale
         angle_data = np.array(data[8:]) / int16_scale * angle_scale
 
-        acc_msg = Msg(_seq=DefaultDecoder.sequence, _timestamp_ms=timestamp, _type=MsgType.ACCELERATION, _data=acc_data)
-        ang_vel_msg = Msg(_seq=DefaultDecoder.sequence, _timestamp_ms=timestamp, _type=MsgType.ANGULAR_VELOCITY,
+        acc_msg = Msg(_seq=DefaultDecoder.sequence, _timestamp_ms=timestamp,
+                      _type=MsgType.ACCELERATION, _data=acc_data)
+        ang_vel_msg = Msg(_seq=DefaultDecoder.sequence, _timestamp_ms=timestamp,
+                          _type=MsgType.ANGULAR_VELOCITY,
                           _data=ang_vel_data)
-        angle_msg = Msg(_seq=DefaultDecoder.sequence, _timestamp_ms=timestamp, _type=MsgType.ANGLE, _data=angle_data)
+        angle_msg = Msg(_seq=DefaultDecoder.sequence, _timestamp_ms=timestamp, _type=MsgType.ANGLE,
+                        _data=angle_data)
 
         return [acc_msg, ang_vel_msg, angle_msg]
 
@@ -393,7 +399,8 @@ class WitProtocol:
     SET_ANGLE_REF_CALIBRATION_MODE = 0x08
     MAG_DUAL_PLANE_CALIBRATION_MODE = 0x09
 
-    def decode(self, pkg_timestamp: int, msg: bytes) -> Generator[Msg, None, None]:
+    @staticmethod
+    def decode(pkg_timestamp: int, msg: bytes) -> Generator[Union[Msg, List[Msg]], None, None]:
         """
         Decode a byte stream from the WT901 BLE device into Msg objects.
 
@@ -409,8 +416,9 @@ class WitProtocol:
 
         Yields
         ------
-        Msg
-            A decoded message object for each complete packet in the stream.
+        Union[Msg, List[Msg]]
+            A decoded message object for each complete packet in the stream or a list of messages
+            if the packet is a default packet containing multiple measurements.
         """
         offset = 0
         while offset < len(msg):
@@ -445,7 +453,8 @@ class WitProtocol:
 
             try:
                 if flag == WitPkt.DEFAULT_FLAG.value:
-                    yield from DefaultDecoder.decode(pkg_timestamp, pkt)
+                    list_of_msg = DefaultDecoder.decode(pkg_timestamp, pkt)
+                    yield list_of_msg
                 elif flag == WitPkt.REGISTER_FLAG.value:
                     if pkt_type == Register.TIMESTAMP.value.address:
                         yield TimestampDecoder.decode(pkg_timestamp, pkt)
@@ -459,7 +468,8 @@ class WitProtocol:
                             Register.get_reg_name_from_address(pkt_type),
                         )
             except Exception as e:
-                protocol_logger.error("Failed to decode packet at offset %d: %s", offset, e)
+                protocol_logger.error(
+                    "Failed to decode packet at offset %d: %s", offset, e)
 
             offset += pkt_size
 
@@ -571,9 +581,13 @@ class WitProtocol:
         Synchronize the device time with the host time.
         """
         msg = [
-            struct.pack("<BBBBBB", 0xFF, 0xAA, Register.YYMM.value.address, date.year % 100, date.month, 0x00),
-            struct.pack("<BBBBBB", 0xFF, 0xAA, Register.DDHH.value.address, date.day, date.hour, 0x00),
-            struct.pack("<BBBBBB", 0xFF, 0xAA, Register.MMSS.value.address, date.minute, date.second, 0x00),
-            struct.pack("<BBBhB", 0xFF, 0xAA, Register.MS.value.address, round(date.microsecond / 1000), 0x00)
+            struct.pack("<BBBBBB", 0xFF, 0xAA, Register.YYMM.value.address, date.year % 100,
+                        date.month, 0x00),
+            struct.pack("<BBBBBB", 0xFF, 0xAA, Register.DDHH.value.address, date.day,
+                        date.hour, 0x00),
+            struct.pack("<BBBBBB", 0xFF, 0xAA, Register.MMSS.value.address, date.minute,
+                        date.second, 0x00),
+            struct.pack("<BBBhB", 0xFF, 0xAA, Register.MS.value.address,
+                        round(date.microsecond / 1000), 0x00)
         ]
         return msg

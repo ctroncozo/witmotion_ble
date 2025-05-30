@@ -1,4 +1,5 @@
 """
+file: scan.py
 BLE Device Scanner for WT901BLECL and Related Sensors
 
 This module scans for nearby Bluetooth Low Energy (BLE) devices using the Bleak library.
@@ -7,6 +8,7 @@ by MAC address.
 
 Author: Cristian Troncoso
 Email: ctroncoso.ai@gmail.com
+License: MIT
 """
 
 import asyncio
@@ -32,7 +34,8 @@ class ScannData:
     advertisement_data: AdvertisementData = field(init=True)
 
 
-async def scan(timeout: int = 5, stop_event: Optional[asyncio.Event] = None) -> dict[str, ScannData]:
+async def scan(timeout: int = 5,
+               stop_event: Optional[asyncio.Event] = None) -> dict[str, ScannData]:
     """
     Scan for BLE devices using Bleak, returning devices found within a time or packet limit.
 
@@ -69,7 +72,8 @@ async def scan(timeout: int = 5, stop_event: Optional[asyncio.Event] = None) -> 
     return devices_found_dic
 
 
-async def scan_runner(timeout: int = 5, stop_event: Optional[asyncio.Event] = None) -> dict[str, ScannData]:
+async def scan_runner(timeout: int = 5,
+                      stop_event: Optional[asyncio.Event] = None) -> dict[str, ScannData]:
     """
     Run the scan coroutine and return the scanned devices.
 
@@ -94,8 +98,8 @@ async def scan_runner(timeout: int = 5, stop_event: Optional[asyncio.Event] = No
         return {}
 
 
-async def scan_for_device(mac: str, timeout: int = 5, stop_event: Optional[asyncio.Event] = None) -> Optional[
-    ScannData]:
+async def scan_for_device(mac: str, timeout: int = 5,
+        stop_event: Optional[asyncio.Event] = None) -> Optional[ScannData]:
     """
     Scan for BLE devices using Bleak, returning devices found within a time or packet limit.
 
@@ -130,7 +134,7 @@ def main():
     Main function to run the scan.
     """
     logging.basicConfig(level=logging.INFO)
-    device = asyncio.run(scan_for_device("FC:7F:CD:6E:97:25", 2))
+    device = asyncio.run(scan_for_device("FC:7F:CD:6E:97:25", 10))
     print(device)
 
 

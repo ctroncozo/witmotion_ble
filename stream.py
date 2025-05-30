@@ -1,29 +1,31 @@
+"""
+file: stream.py
+Stream data from a WT901BLECL5.0 device.
+
+This module provides a simple interface for streaming data from a
+WT901BLECL5.0 device.
+
+Author: Cristian Troncoso
+Email: ctroncoso.ai@gmail.com
+License: MIT
+"""
 import asyncio
+import json
 import logging
 import sys
 import time
+from typing import List, Union
 
-from bleak import BLEDevice, BleakClient
+import zmq
+from bleak import BleakClient, BLEDevice
 from pynput import keyboard
 
 from scan import scan_for_device
-from WT901BLECL.wit_client import Wit901BLEClient
 from WT901BLECL.message import Msg, MsgType
+from WT901BLECL.wit_client import Wit901BLEClient
 
 app_logger = logging.getLogger("app")
 
-def streaming_callback(msg: Msg):
-    """
-    Callback function to be called when data is received.
-    Parameters
-    ----------
-    msg : Msg
-        Data received from the device.
-    Returns
-    -------
-    None
-    """
-    app_logger.info("Received data: %s", msg)
 
 async def connect(ble_device: BLEDevice, stop_event: asyncio.Event):
     """
@@ -38,6 +40,34 @@ async def connect(ble_device: BLEDevice, stop_event: asyncio.Event):
     -------
     None
     """
+
+    # Initialize ZMQ PUB socket inside connect
+    context = zmq.Context()
+    zmq_socket = context.socket(zmq.PUB)
+    zmq_socket.bind("tcp://*:5556")
+
+    def streaming_callback(msg):
+        # If a single Msg, print it
+        if isinstance(msg, Msg):
+            print(msg)
+            return
+        # If a list of Msg, publish as before
+        imu_data = {
+            "acceleration": None, "angular_velocity": None, "angle": None
+        }
+        for m in msg:
+            val = m.data
+            if hasattr(val, "tolist"):
+                val = val.tolist()
+            if m.type.value == MsgType.ACCELERATION.value:
+                imu_data["acceleration"] = val
+            elif m.type.value == MsgType.ANGULAR_VELOCITY.value:
+                imu_data["angular_velocity"] = val
+            elif m.type.value == MsgType.ANGLE.value:
+                imu_data["angle"] = val
+        output = {"stamp": msg[0].stamp, "IMU": imu_data}
+        zmq_socket.send_string(json.dumps(output))
+
     bleak_client = Wit901BLEClient(
         _client=BleakClient(ble_device),
         _update_rate_hz=50,
@@ -69,7 +99,9 @@ def main():
     def keyboard_thread(key):
         try:
             if key.char == "q":
-                app_logger.info("Key interrupt 'q' pressed during scan or connection")
+                app_logger.info(
+                    "Key interrupt 'q' pressed during scan or connection"
+                    )
                 stop_event.set()
                 listener.stop()
         except AttributeError:
@@ -87,7 +119,9 @@ def main():
     try:
         asyncio.run(connect(scan_data.device, stop_event))
     except KeyboardInterrupt:
-        app_logger.info("Key interrupt 'q' pressed - Waiting for disconnection...")
+        app_logger.info(
+            "Key interrupt 'q' pressed - Waiting for disconnection..."
+            )
         time.sleep(5)
     listener.stop()
 

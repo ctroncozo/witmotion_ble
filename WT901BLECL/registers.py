@@ -14,10 +14,10 @@ License: MIT
 Version: 1.0.0
 """
 
+import struct
 from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
-import struct
 
 
 class RegName(Enum):
@@ -73,10 +73,10 @@ class Register(Enum):
 
     # Single return registers data packets
     TIMESTAMP = RegisterMap("timestamp", 0x30)
-    YYMM = RegisterMap("yymm", 0x30) # Year and month
-    DDHH = RegisterMap("ddhh", 0x31) # Day and hour
-    MMSS = RegisterMap("mmss", 0x32) # Minute and second
-    MS = RegisterMap("millistamp", 0x33) # Milliseconds
+    YYMM = RegisterMap("yymm", 0x30)  # Year and month
+    DDHH = RegisterMap("ddhh", 0x31)  # Day and hour
+    MMSS = RegisterMap("mmss", 0x32)  # Minute and second
+    MS = RegisterMap("millistamp", 0x33)  # Milliseconds
     MAGFIELD = RegisterMap("magnetic_field", 0x3A)
     QUATERNIONS = RegisterMap("quaternions", 0x51)
     TEMP = RegisterMap("temperature", 0x40)
@@ -135,10 +135,11 @@ class Register(Enum):
         header_flag_1 = 0xFF
         header_flag_2 = 0xAA
         wit_command_header_bytes = [header_flag_1, header_flag_2]
-        return struct.pack("<BBBBB", *wit_command_header_bytes, register.address, value, 0x00)
+        return struct.pack("<BBBBB", *wit_command_header_bytes, register.address, value,
+                           0x00)
 
     @classmethod
-    def data_pack_request_msg(cls, register: RegisterMap) -> Optional[bytes]:
+    def data_pack_request_msg(cls, register: RegisterMap) -> bytes:
         """
         Create a register request message to read from a specific register.
 
@@ -154,7 +155,7 @@ class Register(Enum):
 
         Returns
         -------
-        Optional[bytes]
+        bytes
             The serialized request message to be sent to the sensor, or None if the
             requested register is the default broadcast register.
         """
