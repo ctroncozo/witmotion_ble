@@ -1,4 +1,5 @@
 """
+file: wit_client.py
 WT901 BLE Client
 
 This module provides a Wit901BLEClient class to handle BLE communication with the WT901 sensor.
@@ -140,7 +141,8 @@ class Wit901BLEClient:
         Performs automatic calibration of the magnetometer in spherical mode.
         Instruct the user to rotate the device in all directions (e.g., figure-8 motion).
         """
-        await self.send_command(WitProtocol.start_magnetometer_spherical_calibration(), response=True)
+        await self.send_command(
+            WitProtocol.start_magnetometer_spherical_calibration(), response=True)
         await self._countdown(30)
         await self.send_command(WitProtocol.quit_calibration(), response=True)
 
@@ -208,7 +210,8 @@ class Wit901BLEClient:
         except Exception as e:
             wit_logger.error("Other error: %s", e)
         await self.get_gatts()
-        await self.send_command(Register.set_register_msg(Register.RATE.value, self._update_rate_value), response=True)
+        await self.send_command(Register.set_register_msg(
+            Register.RATE.value, self._update_rate_value), response=True)
         await self.synchronize()
 
     async def disconnect(self, timeout_secs: int = 5) -> None:
@@ -274,7 +277,8 @@ class Wit901BLEClient:
         """
         if self._running:
             if self._stream_timestamps:
-                await self.send_command(Register.data_pack_request_msg(Register.TIMESTAMP.value), response=False)
+                await self.send_command(
+                    Register.data_pack_request_msg(Register.TIMESTAMP.value), response=False)
             try:
                 stamp = self._timer.timestamp()
                 for msg in self._wit_protocol.decode(stamp, data):

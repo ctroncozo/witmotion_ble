@@ -1,5 +1,6 @@
 """
-WT901 BLE Message and Protocol Utilities
+file: message.py
+WT901 BLE Messages
 
 Defines message containers, and protocol constants
 for decoding and interacting with WT901 BLE sensor devices.
@@ -42,7 +43,8 @@ class Msg:
 
     Each Msg instance represents a single decoded message, storing its unique sequence number,
     timestamp, message type, and associated data. The sequence number is auto-incremented for
-    each new message instance, ensuring unique identification. The class is immutable after creation.
+    each new message instance, ensuring unique identification. The class is immutable after
+    creation.
 
     Attributes
     ----------
@@ -65,7 +67,8 @@ class Msg:
         """
         Developer-friendly string representation of the Msg instance.
         """
-        return f"Msg(seq={self.seq}, stamp={self.stamp:.3f}, type='{self.type.value}', data={self.data})"
+        return (f"Msg(seq={self.seq}, stamp={self.stamp:.3f}, type='{self.type.value}', "
+                f"data={self.data})")
 
     def __str__(self) -> str:
         """
@@ -82,24 +85,11 @@ class Msg:
         dict
             A dictionary containing the sequence number, timestamp, type, and serialized data.
         """
-        return {
-            "seq": self.seq,
-            "stamp": self.stamp,
-            "type": self.type.value,
-            "data": (
-                self.data.tolist()
-                if isinstance(self.data, np.ndarray)
-                else (
-                    self.data.isoformat()
-                    if isinstance(self.data, datetime)
-                    else (
-                        self.data
-                        if isinstance(self.data, (int, float, str, type(None)))
-                        else str(self.data)
-                    )
-                )
-            ),
-        }
+        return {"seq": self.seq, "stamp": self.stamp, "type": self.type.value, "data": (
+            self.data.tolist() if isinstance(self.data, np.ndarray) else (
+                self.data.isoformat() if isinstance(self.data, datetime) else (
+                    self.data if isinstance(self.data, (int, float, str, type(None))) else str(
+                        self.data)))), }
 
     @property
     def seq(self) -> int:

@@ -1,4 +1,5 @@
 """
+file: scan.py
 BLE Device Scanner for WT901BLECL and Related Sensors
 
 This module scans for nearby Bluetooth Low Energy (BLE) devices using the Bleak library.
@@ -7,6 +8,7 @@ by MAC address.
 
 Author: Cristian Troncoso
 Email: ctroncoso.ai@gmail.com
+License: MIT
 """
 
 import asyncio
@@ -132,7 +134,7 @@ def main():
     Main function to run the scan.
     """
     logging.basicConfig(level=logging.INFO)
-    device = asyncio.run(scan_for_device("FC:7F:CD:6E:97:25", 2))
+    device = asyncio.run(scan_for_device("FC:7F:CD:6E:97:25", 10))
     print(device)
 
 

@@ -135,10 +135,11 @@ class Register(Enum):
         header_flag_1 = 0xFF
         header_flag_2 = 0xAA
         wit_command_header_bytes = [header_flag_1, header_flag_2]
-        return struct.pack("<BBBBB", *wit_command_header_bytes, register.address, value, 0x00)
+        return struct.pack("<BBBBB", *wit_command_header_bytes, register.address, value,
+                           0x00)
 
     @classmethod
-    def data_pack_request_msg(cls, register: RegisterMap) -> Optional[bytes]:
+    def data_pack_request_msg(cls, register: RegisterMap) -> bytes:
         """
         Create a register request message to read from a specific register.
 
@@ -154,7 +155,7 @@ class Register(Enum):
 
         Returns
         -------
-        Optional[bytes]
+        bytes
             The serialized request message to be sent to the sensor, or None if the
             requested register is the default broadcast register.
         """

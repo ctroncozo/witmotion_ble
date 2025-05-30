@@ -1,0 +1,20 @@
+<layout>
+  <plot>
+    <title>Acceleration</title>
+    <curve topic="IMU.acceleration.x" color="#FF0000" label="Accel X"/>
+    <curve topic="IMU.acceleration.y" color="#00FF00" label="Accel Y"/>
+    <curve topic="IMU.acceleration.z" color="#0000FF" label="Accel Z"/>
+  </plot>
+  <plot>
+    <title>Angular Velocity</title>
+    <curve topic="IMU.angular_velocity.x" color="#FFA500" label="Gyro X"/>
+    <curve topic="IMU.angular_velocity.y" color="#800080" label="Gyro Y"/>
+    <curve topic="IMU.angular_velocity.z" color="#008080" label="Gyro Z"/>
+  </plot>
+  <plot>
+    <title>Angle</title>
+    <curve topic="IMU.angle.x" color="#A52A2A" label="Angle X"/>
+    <curve topic="IMU.angle.y" color="#228B22" label="Angle Y"/>
+    <curve topic="IMU.angle.z" color="#00008B" label="Angle Z"/>
+  </plot>
+</layout>
