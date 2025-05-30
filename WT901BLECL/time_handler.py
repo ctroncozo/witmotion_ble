@@ -49,7 +49,7 @@ class TimeHandler():
     _update_interval_ms (float):
         Time interval between samples in milliseconds. 
     """
-    _update_rate: int = field(init=True, default=0)
+    _update_rate: int = field(init=True, default=20)
     _initialized: bool = field(init=False, default=False)
     _device_curr_stamp_ms: float = field(init=False, default=None)
     _device_time_offset: datetime = field(init=False, default=None)
@@ -58,11 +58,17 @@ class TimeHandler():
     _logger: logging.Logger = field(init=False, default=None)
 
     def __post_init__(self):
-        if self._update_rate == 0:
-            raise ValueError("Update rate must be greater than 0")
+        self.validate_update_rate()
         self._update_interval_ms = 1000 / self._update_rate
         self._logger = logging.getLogger(__name__)
         self.set_host_time_offset()
+
+    def validate_update_rate(self):
+        """
+        Validate the update rate.
+        """
+        if self._update_rate not in [20, 50, 100]:
+            raise ValueError("Update rate must be 20, 50 or 100")
 
     @property
     def update_interval_ms(self):
@@ -79,11 +85,11 @@ class TimeHandler():
         return self._update_rate
 
     @staticmethod
-    def timestamp() -> int:
+    def timestamp(date_time: Optional[datetime] = None) -> int:
         """
-        Returns the current timestamp in milliseconds.
+        Returns the current timestamp in milliseconds. It call timestamp() to get the number of seconds since the epoch and multiplies by 1000 to get the number of milliseconds.
         """
-        return int(datetime.now(timezone.utc).timestamp() * 1000)
+        return int((date_time or datetime.now(timezone.utc)).timestamp() * 1000)
 
     def set_host_time_offset(self) -> None:
         """
